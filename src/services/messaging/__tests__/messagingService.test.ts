@@ -1,7 +1,7 @@
 /**
  * Messaging Service Tests
  */
-import { describe, it, expect, beforeEach, jest, afterEach } from '@jest/globals';
+import { describe, it, expect, beforeEach, jest } from '@jest/globals';
 import * as messagingService from '../messagingService';
 import * as messageRepository from '../messageRepository';
 import { createAuditLog } from '@/services/audit/auditService';
@@ -27,11 +27,11 @@ describe('Messaging Service', () => {
   const mockConversationId = 'conversation-123';
   const mockMessageId = 'message-123';
   const mockTemplateId = 'template-123';
-  
+
   beforeEach(() => {
     jest.clearAllMocks();
   });
-  
+
   describe('createConversation', () => {
     it('should create a conversation and send notifications', async () => {
       // Mock data
@@ -40,7 +40,7 @@ describe('Messaging Service', () => {
         participantIds: ['user-456'],
         initialMessage: 'Hello!',
       };
-      
+
       const mockConversation = {
         id: mockConversationId,
         type: ConversationType.DIRECT,
@@ -48,33 +48,38 @@ describe('Messaging Service', () => {
         createdAt: new Date(),
         updatedAt: new Date(),
       };
-      
+
       const mockUser = {
         id: mockUserId,
         firstName: 'John',
         lastName: 'Doe',
         email: 'john@example.com',
       };
-      
+
       // Mock repository functions
       (messageRepository.createConversation as jest.Mock).mockResolvedValue(mockConversation);
       (getUserById as jest.Mock).mockResolvedValue(mockUser);
-      
+
       // Call the service function
       const result = await messagingService.createConversation(conversationData, mockUserId);
-      
+
       // Assertions
-      expect(messageRepository.createConversation).toHaveBeenCalledWith(conversationData, mockUserId);
+      expect(messageRepository.createConversation).toHaveBeenCalledWith(
+        conversationData,
+        mockUserId
+      );
       expect(createAuditLog).toHaveBeenCalled();
       expect(getUserById).toHaveBeenCalledWith(mockUserId);
-      expect(sendNotification).toHaveBeenCalledWith(expect.objectContaining({
-        userId: 'user-456',
-        entityId: mockConversationId,
-      }));
+      expect(sendNotification).toHaveBeenCalledWith(
+        expect.objectContaining({
+          userId: 'user-456',
+          entityId: mockConversationId,
+        })
+      );
       expect(result).toEqual(mockConversation);
     });
   });
-  
+
   describe('createMessage', () => {
     it('should create a message and send notifications', async () => {
       // Mock data
@@ -82,7 +87,7 @@ describe('Messaging Service', () => {
         conversationId: mockConversationId,
         content: 'Hello!',
       };
-      
+
       const mockMessage = {
         id: mockMessageId,
         conversationId: mockConversationId,
@@ -93,7 +98,7 @@ describe('Messaging Service', () => {
         updatedAt: new Date(),
         isSystemMessage: false,
       };
-      
+
       const mockConversation = {
         id: mockConversationId,
         type: ConversationType.DIRECT,
@@ -113,45 +118,52 @@ describe('Messaging Service', () => {
           },
         ],
       };
-      
+
       const mockUser = {
         id: mockUserId,
         firstName: 'John',
         lastName: 'Doe',
         email: 'john@example.com',
       };
-      
+
       // Mock repository functions
       (messageRepository.createMessage as jest.Mock).mockResolvedValue(mockMessage);
-      (messageRepository.getConversationWithDetails as jest.Mock).mockResolvedValue(mockConversation);
+      (messageRepository.getConversationWithDetails as jest.Mock).mockResolvedValue(
+        mockConversation
+      );
       (getUserById as jest.Mock).mockResolvedValue(mockUser);
-      
+
       // Call the service function
       const result = await messagingService.createMessage(messageData, mockUserId);
-      
+
       // Assertions
       expect(messageRepository.createMessage).toHaveBeenCalledWith(messageData, mockUserId);
       expect(createAuditLog).toHaveBeenCalled();
       expect(messageRepository.getConversationWithDetails).toHaveBeenCalledWith(mockConversationId);
       expect(getUserById).toHaveBeenCalledWith(mockUserId);
-      expect(sendNotification).toHaveBeenCalledWith(expect.objectContaining({
-        userId: 'user-456',
-        entityId: mockMessageId,
-      }));
+      expect(sendNotification).toHaveBeenCalledWith(
+        expect.objectContaining({
+          userId: 'user-456',
+          entityId: mockMessageId,
+        })
+      );
       expect(result).toEqual(mockMessage);
     });
   });
-  
+
   describe('markMessagesAsRead', () => {
     it('should mark messages as read', async () => {
       // Call the service function
       await messagingService.markMessagesAsRead(mockConversationId, mockUserId);
-      
+
       // Assertions
-      expect(messageRepository.markMessagesAsRead).toHaveBeenCalledWith(mockConversationId, mockUserId);
+      expect(messageRepository.markMessagesAsRead).toHaveBeenCalledWith(
+        mockConversationId,
+        mockUserId
+      );
     });
   });
-  
+
   describe('createMessageTemplate', () => {
     it('should create a message template', async () => {
       // Mock data
@@ -160,7 +172,7 @@ describe('Messaging Service', () => {
         content: 'Hello {{name}}!',
         category: 'general',
       };
-      
+
       const mockTemplate = {
         id: mockTemplateId,
         name: 'Test Template',
@@ -171,20 +183,23 @@ describe('Messaging Service', () => {
         updatedAt: new Date(),
         isActive: true,
       };
-      
+
       // Mock repository functions
       (messageRepository.createMessageTemplate as jest.Mock).mockResolvedValue(mockTemplate);
-      
+
       // Call the service function
       const result = await messagingService.createMessageTemplate(templateData, mockUserId);
-      
+
       // Assertions
-      expect(messageRepository.createMessageTemplate).toHaveBeenCalledWith(templateData, mockUserId);
+      expect(messageRepository.createMessageTemplate).toHaveBeenCalledWith(
+        templateData,
+        mockUserId
+      );
       expect(createAuditLog).toHaveBeenCalled();
       expect(result).toEqual(mockTemplate);
     });
   });
-  
+
   describe('updateMessageTemplate', () => {
     it('should update a message template', async () => {
       // Mock data
@@ -192,7 +207,7 @@ describe('Messaging Service', () => {
         name: 'Updated Template',
         content: 'Hello {{name}} and {{company}}!',
       };
-      
+
       const mockTemplate = {
         id: mockTemplateId,
         name: 'Updated Template',
@@ -203,20 +218,27 @@ describe('Messaging Service', () => {
         updatedAt: new Date(),
         isActive: true,
       };
-      
+
       // Mock repository functions
       (messageRepository.updateMessageTemplate as jest.Mock).mockResolvedValue(mockTemplate);
-      
+
       // Call the service function
-      const result = await messagingService.updateMessageTemplate(mockTemplateId, templateData, mockUserId);
-      
+      const result = await messagingService.updateMessageTemplate(
+        mockTemplateId,
+        templateData,
+        mockUserId
+      );
+
       // Assertions
-      expect(messageRepository.updateMessageTemplate).toHaveBeenCalledWith(mockTemplateId, templateData);
+      expect(messageRepository.updateMessageTemplate).toHaveBeenCalledWith(
+        mockTemplateId,
+        templateData
+      );
       expect(createAuditLog).toHaveBeenCalled();
       expect(result).toEqual(mockTemplate);
     });
   });
-  
+
   describe('processTemplate', () => {
     it('should process a template with variables', () => {
       // Mock data
@@ -230,19 +252,19 @@ describe('Messaging Service', () => {
         updatedAt: new Date(),
         isActive: true,
       };
-      
+
       const variables = {
         name: 'John',
         company: 'Career Ireland',
       };
-      
+
       // Call the service function
       const result = messagingService.processTemplate(template, variables);
-      
+
       // Assertions
       expect(result).toBe('Hello John! Welcome to Career Ireland.');
     });
-    
+
     it('should handle missing variables', () => {
       // Mock data
       const template = {
@@ -255,19 +277,19 @@ describe('Messaging Service', () => {
         updatedAt: new Date(),
         isActive: true,
       };
-      
+
       const variables = {
         name: 'John',
       };
-      
+
       // Call the service function
       const result = messagingService.processTemplate(template, variables);
-      
+
       // Assertions
       expect(result).toBe('Hello John! Welcome to .');
     });
   });
-  
+
   describe('sendMessageFromTemplate', () => {
     it('should send a message using a template', async () => {
       // Mock data
@@ -275,7 +297,7 @@ describe('Messaging Service', () => {
         name: 'John',
         company: 'Career Ireland',
       };
-      
+
       const mockTemplate = {
         id: mockTemplateId,
         name: 'Test Template',
@@ -286,7 +308,7 @@ describe('Messaging Service', () => {
         updatedAt: new Date(),
         isActive: true,
       };
-      
+
       const mockMessage = {
         id: mockMessageId,
         conversationId: mockConversationId,
@@ -302,14 +324,14 @@ describe('Messaging Service', () => {
           templateName: 'Test Template',
         },
       };
-      
+
       // Mock repository functions
       (messageRepository.getMessageTemplateById as jest.Mock).mockResolvedValue(mockTemplate);
-      
+
       // Mock createMessage function
       const createMessageSpy = jest.spyOn(messagingService, 'createMessage');
       createMessageSpy.mockResolvedValue(mockMessage);
-      
+
       // Call the service function
       const result = await messagingService.sendMessageFromTemplate(
         mockTemplateId,
@@ -317,7 +339,7 @@ describe('Messaging Service', () => {
         variables,
         mockUserId
       );
-      
+
       // Assertions
       expect(messageRepository.getMessageTemplateById).toHaveBeenCalledWith(mockTemplateId);
       expect(createMessageSpy).toHaveBeenCalledWith(
@@ -332,23 +354,18 @@ describe('Messaging Service', () => {
         mockUserId
       );
       expect(result).toEqual(mockMessage);
-      
+
       // Restore spy
       createMessageSpy.mockRestore();
     });
-    
+
     it('should throw an error if template is not found', async () => {
       // Mock repository functions
       (messageRepository.getMessageTemplateById as jest.Mock).mockResolvedValue(null);
-      
+
       // Call the service function and expect it to throw
       await expect(
-        messagingService.sendMessageFromTemplate(
-          mockTemplateId,
-          mockConversationId,
-          {},
-          mockUserId
-        )
+        messagingService.sendMessageFromTemplate(mockTemplateId, mockConversationId, {}, mockUserId)
       ).rejects.toThrow(`Template with ID ${mockTemplateId} not found`);
     });
   });

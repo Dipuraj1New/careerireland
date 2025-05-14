@@ -9,22 +9,24 @@ import {
   Conversation,
   ConversationParticipant,
   Message,
-  MessageAttachment,
-  MessageReceipt,
+  // These types are commented out as they're not currently used
+  // MessageAttachment,
+  // MessageReceipt,
   MessageTemplate,
-  ConversationType,
+  // ConversationType is imported but not used directly in this file
+  // ConversationType,
   MessageStatus,
   ConversationCreateData,
   MessageCreateData,
   MessageTemplateCreateData,
   MessageTemplateUpdateData,
-  ConversationSummary
+  ConversationSummary,
 } from '@/types/message';
 
 /**
  * Map conversation from database row
  */
-function mapConversationFromDb(row: any): Conversation {
+function mapConversationFromDb(row: Record<string, unknown>): Conversation {
   return {
     id: row.id,
     title: row.title,
@@ -41,7 +43,7 @@ function mapConversationFromDb(row: any): Conversation {
 /**
  * Map conversation participant from database row
  */
-function mapParticipantFromDb(row: any): ConversationParticipant {
+function mapParticipantFromDb(row: Record<string, unknown>): ConversationParticipant {
   return {
     id: row.id,
     conversationId: row.conversation_id,
@@ -50,20 +52,22 @@ function mapParticipantFromDb(row: any): ConversationParticipant {
     leftAt: row.left_at,
     isAdmin: row.is_admin,
     lastReadAt: row.last_read_at,
-    user: row.user_first_name ? {
-      id: row.user_id,
-      firstName: row.user_first_name,
-      lastName: row.user_last_name,
-      email: row.user_email,
-      avatarUrl: row.user_avatar_url,
-    } : undefined,
+    user: row.user_first_name
+      ? {
+          id: row.user_id,
+          firstName: row.user_first_name,
+          lastName: row.user_last_name,
+          email: row.user_email,
+          avatarUrl: row.user_avatar_url,
+        }
+      : undefined,
   };
 }
 
 /**
  * Map message from database row
  */
-function mapMessageFromDb(row: any): Message {
+function mapMessageFromDb(row: Record<string, unknown>): Message {
   return {
     id: row.id,
     conversationId: row.conversation_id,
@@ -75,19 +79,23 @@ function mapMessageFromDb(row: any): Message {
     parentId: row.parent_id,
     isSystemMessage: row.is_system_message,
     metadata: row.metadata,
-    sender: row.sender_first_name ? {
-      id: row.sender_id,
-      firstName: row.sender_first_name,
-      lastName: row.sender_last_name,
-      avatarUrl: row.sender_avatar_url,
-    } : undefined,
+    sender: row.sender_first_name
+      ? {
+          id: row.sender_id,
+          firstName: row.sender_first_name,
+          lastName: row.sender_last_name,
+          avatarUrl: row.sender_avatar_url,
+        }
+      : undefined,
   };
 }
 
 /**
  * Map message attachment from database row
  */
-function mapAttachmentFromDb(row: any): MessageAttachment {
+// This function is currently not used but kept for future use
+/*
+function mapAttachmentFromDb(row: Record<string, unknown>): MessageAttachment {
   return {
     id: row.id,
     messageId: row.message_id,
@@ -99,11 +107,14 @@ function mapAttachmentFromDb(row: any): MessageAttachment {
     uploadedBy: row.uploaded_by,
   };
 }
+*/
 
 /**
  * Map message receipt from database row
  */
-function mapReceiptFromDb(row: any): MessageReceipt {
+// This function is currently not used but kept for future use
+/*
+function mapReceiptFromDb(row: Record<string, unknown>): MessageReceipt {
   return {
     id: row.id,
     messageId: row.message_id,
@@ -112,11 +123,12 @@ function mapReceiptFromDb(row: any): MessageReceipt {
     timestamp: row.timestamp,
   };
 }
+*/
 
 /**
  * Map message template from database row
  */
-function mapTemplateFromDb(row: any): MessageTemplate {
+function mapTemplateFromDb(row: Record<string, unknown>): MessageTemplate {
   return {
     id: row.id,
     name: row.name,
@@ -190,22 +202,14 @@ export async function createConversation(
         `INSERT INTO messages (
           id, conversation_id, sender_id, content, status, created_at, updated_at
         ) VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-        [
-          messageId,
-          conversationId,
-          userId,
-          data.initialMessage,
-          MessageStatus.SENT,
-          now,
-          now,
-        ]
+        [messageId, conversationId, userId, data.initialMessage, MessageStatus.SENT, now, now]
       );
 
       // Update conversation last_message_at
-      await client.query(
-        `UPDATE conversations SET last_message_at = $1 WHERE id = $2`,
-        [now, conversationId]
-      );
+      await client.query(`UPDATE conversations SET last_message_at = $1 WHERE id = $2`, [
+        now,
+        conversationId,
+      ]);
     }
 
     await client.query('COMMIT');
@@ -223,10 +227,7 @@ export async function createConversation(
  * Get conversation by ID
  */
 export async function getConversationById(id: string): Promise<Conversation | null> {
-  const result = await db.query(
-    `SELECT * FROM conversations WHERE id = $1`,
-    [id]
-  );
+  const result = await db.query(`SELECT * FROM conversations WHERE id = $1`, [id]);
 
   if (result.rows.length === 0) {
     return null;
@@ -343,12 +344,14 @@ export async function getConversationsForUser(
       type: row.type,
       caseId: row.case_id,
       lastMessageAt: row.last_message_at,
-      lastMessage: row.last_message_content ? {
-        content: row.last_message_content,
-        senderId: row.last_message_sender_id,
-        senderName: row.last_message_sender_name,
-        createdAt: row.last_message_created_at,
-      } : undefined,
+      lastMessage: row.last_message_content
+        ? {
+            content: row.last_message_content,
+            senderId: row.last_message_sender_id,
+            senderName: row.last_message_sender_name,
+            createdAt: row.last_message_created_at,
+          }
+        : undefined,
       unreadCount: parseInt(row.unread_count) || 0,
       participants: participantsResult.rows.map(p => ({
         id: p.id,
@@ -365,10 +368,7 @@ export async function getConversationsForUser(
 /**
  * Create a new message
  */
-export async function createMessage(
-  data: MessageCreateData,
-  senderId: string
-): Promise<Message> {
+export async function createMessage(data: MessageCreateData, senderId: string): Promise<Message> {
   const client = await db.getClient();
 
   try {
@@ -441,13 +441,7 @@ export async function createMessage(
         `INSERT INTO message_receipts (
           id, message_id, user_id, status, timestamp
         ) VALUES ($1, $2, $3, $4, $5)`,
-        [
-          uuidv4(),
-          messageId,
-          participant.user_id,
-          MessageStatus.SENT,
-          now,
-        ]
+        [uuidv4(), messageId, participant.user_id, MessageStatus.SENT, now]
       );
     }
 
@@ -481,7 +475,7 @@ export async function getMessagesForConversation(
     WHERE m.conversation_id = $1
   `;
 
-  const params: any[] = [conversationId];
+  const params: (string | Date)[] = [conversationId];
 
   if (before) {
     query += ` AND m.created_at < $2`;
@@ -499,10 +493,7 @@ export async function getMessagesForConversation(
 /**
  * Mark messages as read
  */
-export async function markMessagesAsRead(
-  conversationId: string,
-  userId: string
-): Promise<void> {
+export async function markMessagesAsRead(conversationId: string, userId: string): Promise<void> {
   const client = await db.getClient();
 
   try {
@@ -580,7 +571,7 @@ export async function getMessageTemplates(
   activeOnly: boolean = true
 ): Promise<MessageTemplate[]> {
   let query = `SELECT * FROM message_templates`;
-  const params: any[] = [];
+  const params: (string | boolean)[] = [];
 
   if (category || activeOnly) {
     query += ` WHERE`;
@@ -610,10 +601,7 @@ export async function getMessageTemplates(
  * Get message template by ID
  */
 export async function getMessageTemplateById(id: string): Promise<MessageTemplate | null> {
-  const result = await db.query(
-    `SELECT * FROM message_templates WHERE id = $1`,
-    [id]
-  );
+  const result = await db.query(`SELECT * FROM message_templates WHERE id = $1`, [id]);
 
   if (result.rows.length === 0) {
     return null;
@@ -631,7 +619,7 @@ export async function updateMessageTemplate(
 ): Promise<MessageTemplate | null> {
   // Build update query
   const updates: string[] = [];
-  const params: any[] = [id];
+  const params: (string | boolean | Date | object)[] = [id];
 
   if (data.name !== undefined) {
     updates.push(`name = $${params.length + 1}`);

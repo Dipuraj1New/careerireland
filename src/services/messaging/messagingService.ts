@@ -7,8 +7,9 @@
 import { Server as SocketIOServer } from 'socket.io';
 import { Server as HttpServer } from 'http';
 import { v4 as uuidv4 } from 'uuid';
-import { redisClient, connectRedis } from '@/lib/redis';
-import { uploadFile } from '@/services/storage/storageService';
+// Redis and storage imports are commented out as they're not currently used
+// import { redisClient, connectRedis } from '@/lib/redis';
+// import { uploadFile } from '@/services/storage/storageService';
 import { createAuditLog } from '@/services/audit/auditService';
 import { AuditAction, AuditEntityType } from '@/types/audit';
 import { getUserById } from '@/services/user/userRepository';
@@ -18,15 +19,17 @@ import {
   Conversation,
   ConversationParticipant,
   Message,
-  MessageAttachment,
+  // MessageAttachment is not currently used
+  // MessageAttachment,
   MessageTemplate,
-  ConversationType,
+  // ConversationType is not currently used
+  // ConversationType,
   MessageStatus,
   ConversationCreateData,
   MessageCreateData,
   MessageTemplateCreateData,
   MessageTemplateUpdateData,
-  ConversationSummary
+  ConversationSummary,
 } from '@/types/message';
 import * as messageRepository from './messageRepository';
 
@@ -49,14 +52,14 @@ export function initializeSocketIO(server: HttpServer): void {
     path: '/api/socket',
   });
 
-  io.on('connection', (socket) => {
+  io.on('connection', socket => {
     console.log(`Socket connected: ${socket.id}`);
 
     // Authenticate user
-    socket.on('authenticate', async (token: string) => {
+    socket.on('authenticate', async (authToken: string) => {
       try {
         // Verify JWT token (implementation depends on your auth system)
-        const userId = verifyToken(token);
+        const userId = verifyToken(authToken);
 
         if (!userId) {
           socket.disconnect();
@@ -81,38 +84,44 @@ export function initializeSocketIO(server: HttpServer): void {
     });
 
     // Handle message sending
-    socket.on('send_message', async (data: {
-      conversationId: string;
-      content: string;
-      parentId?: string;
-      metadata?: Record<string, any>;
-    }) => {
-      try {
-        const userId = socket.data.userId;
+    socket.on(
+      'send_message',
+      async (data: {
+        conversationId: string;
+        content: string;
+        parentId?: string;
+        metadata?: Record<string, unknown>;
+      }) => {
+        try {
+          const userId = socket.data.userId;
 
-        if (!userId) {
-          socket.emit('error', { message: 'Not authenticated' });
-          return;
+          if (!userId) {
+            socket.emit('error', { message: 'Not authenticated' });
+            return;
+          }
+
+          // Create message
+          const message = await createMessage(
+            {
+              conversationId: data.conversationId,
+              content: data.content,
+              parentId: data.parentId,
+              metadata: data.metadata,
+            },
+            userId
+          );
+
+          // Broadcast to room
+          socket.to(`conversation:${data.conversationId}`).emit('new_message', message);
+
+          // Acknowledge message receipt
+          socket.emit('message_sent', { messageId: message.id });
+        } catch (error) {
+          console.error('Error sending message:', error);
+          socket.emit('error', { message: 'Failed to send message' });
         }
-
-        // Create message
-        const message = await createMessage({
-          conversationId: data.conversationId,
-          content: data.content,
-          parentId: data.parentId,
-          metadata: data.metadata,
-        }, userId);
-
-        // Broadcast to room
-        socket.to(`conversation:${data.conversationId}`).emit('new_message', message);
-
-        // Acknowledge message receipt
-        socket.emit('message_sent', { messageId: message.id });
-      } catch (error) {
-        console.error('Error sending message:', error);
-        socket.emit('error', { message: 'Failed to send message' });
       }
-    });
+    );
 
     // Handle read receipts
     socket.on('mark_read', async (data: { conversationId: string }) => {
@@ -139,7 +148,7 @@ export function initializeSocketIO(server: HttpServer): void {
     });
 
     // Handle typing indicators
-    socket.on('typing', (data: { conversationId: string, isTyping: boolean }) => {
+    socket.on('typing', (data: { conversationId: string; isTyping: boolean }) => {
       const userId = socket.data.userId;
 
       if (!userId) {
@@ -174,7 +183,10 @@ export function initializeSocketIO(server: HttpServer): void {
 /**
  * Join user to their conversation rooms
  */
-async function joinUserRooms(socket: any, userId: string): Promise<void> {
+async function joinUserRooms(
+  socket: SocketIOServer['sockets']['sockets']['get'],
+  userId: string
+): Promise<void> {
   try {
     // Get user's conversations
     const conversations = await messageRepository.getConversationsForUser(userId);
@@ -193,10 +205,11 @@ async function joinUserRooms(socket: any, userId: string): Promise<void> {
 /**
  * Verify JWT token (placeholder - implement based on your auth system)
  */
-function verifyToken(token: string): string | null {
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+function verifyToken(authToken: string): string | null {
   // This is a placeholder - implement your actual token verification
   try {
-    // Example: const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    // Example: const decoded = jwt.verify(authToken, process.env.JWT_SECRET);
     // return decoded.userId;
     return 'user-123'; // Placeholder
   } catch (error) {
@@ -291,10 +304,7 @@ export async function getConversationsForUser(
 /**
  * Create a new message
  */
-export async function createMessage(
-  data: MessageCreateData,
-  userId: string
-): Promise<Message> {
+export async function createMessage(data: MessageCreateData, userId: string): Promise<Message> {
   // Handle file attachments if present
   if (data.attachments && data.attachments.length > 0) {
     // Process attachments (implementation depends on your storage service)
@@ -379,10 +389,7 @@ export async function getMessagesForConversation(
 /**
  * Mark messages as read
  */
-export async function markMessagesAsRead(
-  conversationId: string,
-  userId: string
-): Promise<void> {
+export async function markMessagesAsRead(conversationId: string, userId: string): Promise<void> {
   await messageRepository.markMessagesAsRead(conversationId, userId);
 
   // Notify other participants via Socket.IO
@@ -469,7 +476,7 @@ export async function updateMessageTemplate(
  */
 export function processTemplate(
   template: MessageTemplate,
-  variables: Record<string, any>
+  variables: Record<string, unknown>
 ): string {
   let content = template.content;
 
@@ -488,7 +495,7 @@ export function processTemplate(
 export async function sendMessageFromTemplate(
   templateId: string,
   conversationId: string,
-  variables: Record<string, any>,
+  variables: Record<string, unknown>,
   userId: string
 ): Promise<Message | null> {
   // Get template
@@ -502,15 +509,18 @@ export async function sendMessageFromTemplate(
   const content = processTemplate(template, variables);
 
   // Create message
-  return createMessage({
-    conversationId,
-    content,
-    metadata: {
-      fromTemplate: true,
-      templateId,
-      templateName: template.name,
+  return createMessage(
+    {
+      conversationId,
+      content,
+      metadata: {
+        fromTemplate: true,
+        templateId,
+        templateName: template.name,
+      },
     },
-  }, userId);
+    userId
+  );
 }
 
 /**
@@ -521,9 +531,11 @@ export async function addUserToConversation(
   userId: string,
   addedByUserId: string
 ): Promise<ConversationParticipant | null> {
-  const client = await db.getClient();
+  // Import db here to avoid circular dependencies
+  const db = await import('@/lib/db').then(module => module.default);
 
   try {
+    const client = await db.getClient();
     await client.query('BEGIN');
 
     // Check if conversation exists
@@ -619,13 +631,15 @@ export async function addUserToConversation(
       userId,
       joinedAt: result.rows[0].joined_at,
       isAdmin: result.rows[0].is_admin,
-      user: addedUser ? {
-        id: addedUser.id,
-        firstName: addedUser.firstName,
-        lastName: addedUser.lastName,
-        email: addedUser.email,
-        avatarUrl: addedUser.avatarUrl,
-      } : undefined,
+      user: addedUser
+        ? {
+            id: addedUser.id,
+            firstName: addedUser.firstName,
+            lastName: addedUser.lastName,
+            email: addedUser.email,
+            avatarUrl: addedUser.avatarUrl,
+          }
+        : undefined,
     };
   } catch (error) {
     await client.query('ROLLBACK');
